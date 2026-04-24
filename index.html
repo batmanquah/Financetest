@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>My Finance App</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1f6feb">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -94,6 +96,11 @@
       color: #1f6feb;
     }
 
+    button.danger {
+      background: #fff0f0;
+      color: #d93025;
+    }
+
     .record {
       padding: 12px 0;
       border-bottom: 1px solid #eee;
@@ -122,6 +129,12 @@
       padding: 8px 10px;
       width: auto;
       font-size: 13px;
+      margin-top: 8px;
+    }
+
+    #receiptStatus {
+      color: #666;
+      font-size: 14px;
       margin-top: 8px;
     }
 
@@ -165,10 +178,12 @@
     </div>
 
     <div class="card">
-  <h3>12-Month Projection</h3>
-  <p>Monthly Net: <b id="monthlyNet">RM 0.00</b></p>
-  <p>Projected Net Worth (12 months): <b id="projection12">RM 0.00</b></p>
-</div>
+      <h3>This Month</h3>
+      <p>Monthly Income: <b id="monthlyIncome">RM 0.00</b></p>
+      <p>Monthly Expenses: <b id="monthlyExpenses">RM 0.00</b></p>
+      <p>Monthly Cashflow: <b id="monthlyCashflow">RM 0.00</b></p>
+      <p>12-Month Projection: <b id="projection12">RM 0.00</b></p>
+    </div>
 
     <div class="card">
       <h3>Add Record</h3>
@@ -187,8 +202,13 @@
       <input type="text" id="description" placeholder="Description">
       <input type="number" id="amount" placeholder="Amount">
 
+      <input type="file" id="receiptUpload" accept="image/*" capture="environment">
+      <button class="secondary" onclick="readReceipt()">Read Receipt</button>
+      <p id="receiptStatus"></p>
+
       <button onclick="addRecord()">Add Record</button>
       <button class="secondary" onclick="exportCSV()">Export CSV</button>
+      <button class="danger" onclick="clearAllData()">Clear All Data</button>
     </div>
 
     <div class="card">
@@ -231,14 +251,18 @@
       clearForm();
       renderRecords();
       updateDashboard();
+      updateMonthlyDashboard();
     }
 
     function deleteRecord(index) {
       if (!confirm("Delete this record?")) return;
+
       records.splice(index, 1);
+
       saveData();
       renderRecords();
       updateDashboard();
+      updateMonthlyDashboard();
     }
 
     function saveData() {
@@ -250,6 +274,8 @@
       document.getElementById("category").value = "";
       document.getElementById("description").value = "";
       document.getElementById("amount").value = "";
+      document.getElementById("receiptUpload").value = "";
+      document.getElementById("receiptStatus").innerText = "";
     }
 
     function renderRecords() {
@@ -289,10 +315,10 @@
       let debt = 0;
 
       records.forEach(record => {
-        if (record.type === "income") income += record.amount;
-        if (record.type === "expense") expenses += record.amount;
-        if (record.type === "investment") investments += record.amount;
-        if (record.type === "loan" || record.type === "creditcard") debt += record.amount;
+        if (record.type === "income") income += Number(record.amount);
+        if (record.type === "expense") expenses += Number(record.amount);
+        if (record.type === "investment") investments += Number(record.amount);
+        if (record.type === "loan" || record.type === "creditcard") debt += Number(record.amount);
       });
 
       const netWorth = income + investments - expenses - debt;
@@ -302,6 +328,199 @@
       document.getElementById("totalInvestments").innerText = money(investments);
       document.getElementById("totalDebt").innerText = money(debt);
       document.getElementById("netWorth").innerText = money(netWorth);
+    }
+
+    function getMonthlyTotal(type) {
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      return records
+        .filter(r => {
+          const d = new Date(r.date);
+          return (
+            r.type === type &&
+            d.getMonth() === currentMonth &&
+            d.getFullYear() === currentYear
+          );
+        })
+        .reduce((sum, r) => sum + Number(r.amount), 0);
+    }
+
+    function updateMonthlyDashboard() {
+      const monthlyIncome = getMonthlyTotal("income");
+      const monthlyExpenses = getMonthlyTotal("expense");
+      const monthlyCashflow = monthlyIncome - monthlyExpenses;
+
+      const totalInvestments = records
+        .filter(r => r.type === "investment")
+        .reduce((sum, r) => sum + Number(r.amount), 0);
+
+      const totalDebt = records
+        .filter(r => r.type === "loan" || r.type === "creditcard")
+        .reduce((sum, r) => sum + Number(r.amount), 0);
+
+      const projectedNetWorth =
+        totalInvestments - totalDebt + (monthlyCashflow * 12);
+
+      document.getElementById("monthlyIncome").innerText = money(monthlyIncome);
+      document.getElementById("monthlyExpenses").innerText = money(monthlyExpenses);
+      document.getElementById("monthlyCashflow").innerText = money(monthlyCashflow);
+      document.getElementById("projection12").innerText = money(projectedNetWorth);
+    }
+
+    async function readReceipt() {
+      const fileInput = document.getElementById("receiptUpload");
+      const status = document.getElementById("receiptStatus");
+
+      if (!fileInput.files.length) {
+        alert("Please upload a receipt photo first.");
+        return;
+      }
+
+      status.innerText = "Reading receipt...";
+
+      const file = fileInput.files[0];
+
+      try {
+        const result = await Tesseract.recognize(
+          file,
+          "eng",
+          {
+            logger: m => {
+              if (m.status) {
+                status.innerText = "Reading: " + m.status;
+              }
+            }
+          }
+        );
+
+        const text = result.data.text;
+        console.log(text);
+
+        const amount = extractAmount(text);
+        const date = extractDate(text);
+        const category = guessCategory(text);
+
+        document.getElementById("type").value = "expense";
+        document.getElementById("amount").value = amount || "";
+        document.getElementById("date").value = date || new Date().toISOString().split("T")[0];
+        document.getElementById("category").value = category;
+        document.getElementById("description").value = text.substring(0, 80);
+
+        status.innerText = "Receipt read successfully. Please check before saving.";
+
+      } catch (error) {
+        console.error(error);
+        status.innerText = "Could not read the receipt.";
+      }
+    }
+
+    function extractAmount(text) {
+      const lines = text.split("\n").map(line => line.trim());
+
+      const keywords = [
+        "total",
+        "amount",
+        "grand total",
+        "balance",
+        "paid",
+        "net total",
+        "subtotal"
+      ];
+
+      for (let line of lines) {
+        const lower = line.toLowerCase();
+
+        if (keywords.some(k => lower.includes(k))) {
+          const match = line.match(/(\d+[.,]\d{2})/g);
+
+          if (match && match.length > 0) {
+            return Number(match[match.length - 1].replace(",", "."));
+          }
+        }
+      }
+
+      const allAmounts = text.match(/(\d+[.,]\d{2})/g);
+
+      if (!allAmounts) return "";
+
+      return Math.max(
+        ...allAmounts.map(a => Number(a.replace(",", ".")))
+      );
+    }
+
+    function extractDate(text) {
+      const match = text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+
+      if (!match) return "";
+
+      let day = match[1].padStart(2, "0");
+      let month = match[2].padStart(2, "0");
+      let year = match[3];
+
+      if (year.length === 2) {
+        year = "20" + year;
+      }
+
+      return `${year}-${month}-${day}`;
+    }
+
+    function guessCategory(text) {
+      const lower = text.toLowerCase();
+
+      if (
+        lower.includes("petron") ||
+        lower.includes("shell") ||
+        lower.includes("caltex") ||
+        lower.includes("bhp") ||
+        lower.includes("fuel")
+      ) {
+        return "Petrol";
+      }
+
+      if (
+        lower.includes("grab") ||
+        lower.includes("taxi") ||
+        lower.includes("parking") ||
+        lower.includes("touch n go") ||
+        lower.includes("tng")
+      ) {
+        return "Transport";
+      }
+
+      if (
+        lower.includes("aeon") ||
+        lower.includes("jaya grocer") ||
+        lower.includes("village grocer") ||
+        lower.includes("lotus") ||
+        lower.includes("tesco") ||
+        lower.includes("grocery")
+      ) {
+        return "Groceries";
+      }
+
+      if (
+        lower.includes("restaurant") ||
+        lower.includes("cafe") ||
+        lower.includes("coffee") ||
+        lower.includes("mcd") ||
+        lower.includes("kfc") ||
+        lower.includes("food")
+      ) {
+        return "Food";
+      }
+
+      if (
+        lower.includes("pharmacy") ||
+        lower.includes("guardian") ||
+        lower.includes("watsons") ||
+        lower.includes("clinic")
+      ) {
+        return "Health";
+      }
+
+      return "Expense";
     }
 
     function exportCSV() {
@@ -328,33 +547,23 @@
       URL.revokeObjectURL(url);
     }
 
+    function clearAllData() {
+      if (!confirm("This will delete all your records. Continue?")) return;
+
+      records = [];
+      saveData();
+      renderRecords();
+      updateDashboard();
+      updateMonthlyDashboard();
+    }
+
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js");
     }
 
     renderRecords();
     updateDashboard();
-calculateProjection();
-    
-  function calculateProjection() {
-  let income = 0;
-  let expenses = 0;
-  let investments = 0;
-  let debt = 0;
-
-  records.forEach(r => {
-    if (r.type === "income") income += r.amount;
-    if (r.type === "expense") expenses += r.amount;
-    if (r.type === "investment") investments += r.amount;
-    if (r.type === "loan" || r.type === "creditcard") debt += r.amount;
-  });
-
-  const monthlyNet = income - expenses;
-  const currentNetWorth = income + investments - expenses - debt;
-  const projectedNetWorth = currentNetWorth + (monthlyNet * 12);
-
-  document.getElementById("monthlyNet").innerText = "RM " + monthlyNet.toFixed(2);
-  document.getElementById("projection12").innerText = "RM " + projectedNetWorth.toFixed(2);
-}
+    updateMonthlyDashboard();
+  </script>
 </body>
 </html>
