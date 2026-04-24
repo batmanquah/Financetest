@@ -6,6 +6,7 @@
   <title>My Finance App</title>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1f6feb">
@@ -23,6 +24,11 @@
       color: #222;
     }
 
+    body.dark {
+      background: #101418;
+      color: #f1f1f1;
+    }
+
     header {
       background: #1f6feb;
       color: white;
@@ -34,11 +40,26 @@
       border-bottom-right-radius: 22px;
     }
 
+    nav {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      padding: 12px;
+    }
+
+    nav button {
+      font-size: 12px;
+      padding: 10px 5px;
+    }
+
     main {
       padding: 16px;
-      max-width: 720px;
+      max-width: 760px;
       margin: auto;
     }
+
+    .page { display: none; }
+    .page.active { display: block; }
 
     .grid {
       display: grid;
@@ -54,14 +75,20 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
 
-    .small-card {
-      min-height: 95px;
+    body.dark .card {
+      background: #1a2027;
     }
+
+    .small-card { min-height: 95px; }
 
     .label {
       color: #666;
       font-size: 13px;
       margin-bottom: 8px;
+    }
+
+    body.dark .label {
+      color: #aaa;
     }
 
     .value {
@@ -74,7 +101,7 @@
     .asset { color: #1f6feb; }
     .debt { color: #9b1c1c; }
 
-    input, select, button {
+    input, select, button, textarea {
       width: 100%;
       padding: 13px;
       margin-top: 8px;
@@ -123,6 +150,10 @@
       margin-top: 4px;
     }
 
+    body.dark .record-bottom {
+      color: #aaa;
+    }
+
     .delete-btn {
       background: #fff0f0;
       color: #d93025;
@@ -132,13 +163,22 @@
       margin-top: 8px;
     }
 
-    #receiptStatus {
-      color: #666;
-      font-size: 14px;
+    .progress-bg {
+      background: #eee;
+      border-radius: 20px;
+      height: 12px;
       margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      background: #1f6feb;
+      height: 12px;
+      width: 0%;
     }
 
     @media (max-width: 480px) {
+      nav { grid-template-columns: repeat(3, 1fr); }
       .grid { grid-template-columns: 1fr 1fr; }
       header { font-size: 20px; }
       .value { font-size: 19px; }
@@ -149,82 +189,196 @@
 <body>
   <header>My Finance App</header>
 
+  <nav>
+    <button onclick="showPage('dashboardPage')">Dashboard</button>
+    <button onclick="showPage('addPage')">Add</button>
+    <button onclick="showPage('budgetPage')">Budget</button>
+    <button onclick="showPage('walletPage')">Wallets</button>
+    <button onclick="showPage('schedulePage')">Schedule</button>
+    <button onclick="showPage('recordsPage')">Records</button>
+  </nav>
+
   <main>
-    <div class="grid">
-      <div class="card small-card">
-        <div class="label">Income</div>
-        <div class="value income" id="totalIncome">RM 0.00</div>
+    <div id="dashboardPage" class="page active">
+      <div class="grid">
+        <div class="card small-card">
+          <div class="label">Income</div>
+          <div class="value income" id="totalIncome">RM 0.00</div>
+        </div>
+        <div class="card small-card">
+          <div class="label">Expenses</div>
+          <div class="value expense" id="totalExpenses">RM 0.00</div>
+        </div>
+        <div class="card small-card">
+          <div class="label">Investments</div>
+          <div class="value asset" id="totalInvestments">RM 0.00</div>
+        </div>
+        <div class="card small-card">
+          <div class="label">Debt</div>
+          <div class="value debt" id="totalDebt">RM 0.00</div>
+        </div>
       </div>
 
-      <div class="card small-card">
-        <div class="label">Expenses</div>
-        <div class="value expense" id="totalExpenses">RM 0.00</div>
+      <div class="card">
+        <div class="label">Net Worth</div>
+        <div class="value" id="netWorth">RM 0.00</div>
       </div>
 
-      <div class="card small-card">
-        <div class="label">Investments</div>
-        <div class="value asset" id="totalInvestments">RM 0.00</div>
+      <div class="card">
+        <h3>This Month</h3>
+        <p>Monthly Income: <b id="monthlyIncome">RM 0.00</b></p>
+        <p>Monthly Expenses: <b id="monthlyExpenses">RM 0.00</b></p>
+        <p>Monthly Cashflow: <b id="monthlyCashflow">RM 0.00</b></p>
+        <p>Savings Rate: <b id="savingsRate">0%</b></p>
+        <p>12-Month Projection: <b id="projection12">RM 0.00</b></p>
       </div>
 
-      <div class="card small-card">
-        <div class="label">Debt</div>
-        <div class="value debt" id="totalDebt">RM 0.00</div>
+      <div class="card">
+        <h3>Spending by Category</h3>
+        <canvas id="categoryChart"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Monthly Expense Trend</h3>
+        <canvas id="monthlyChart"></canvas>
+      </div>
+
+      <div class="card">
+        <button class="secondary" onclick="toggleDarkMode()">Dark Mode On / Off</button>
       </div>
     </div>
 
-    <div class="card">
-      <div class="label">Net Worth</div>
-      <div class="value" id="netWorth">RM 0.00</div>
+    <div id="addPage" class="page">
+      <div class="card">
+        <h3>Add Record</h3>
+
+        <input type="date" id="date">
+
+        <select id="type">
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+          <option value="investment">Investment</option>
+          <option value="loan">Loan</option>
+          <option value="creditcard">Credit Card Debt</option>
+          <option value="transfer">Transfer</option>
+        </select>
+
+        <input type="text" id="category" placeholder="Category e.g. Salary, Food, Maybank Card">
+        <input type="text" id="description" placeholder="Description">
+        <input type="text" id="tag" placeholder="Tag e.g. Kids, Business, Paris">
+        <input type="number" id="amount" placeholder="Amount">
+
+        <select id="wallet">
+          <option value="">Select Wallet</option>
+        </select>
+
+        <select id="toWallet">
+          <option value="">To Wallet for transfer only</option>
+        </select>
+
+        <input type="file" id="receiptUpload" accept="image/*" capture="environment">
+        <button class="secondary" onclick="readReceipt()">Read Receipt</button>
+        <p id="receiptStatus"></p>
+
+        <button onclick="addRecord()">Add Record</button>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>This Month</h3>
-      <p>Monthly Income: <b id="monthlyIncome">RM 0.00</b></p>
-      <p>Monthly Expenses: <b id="monthlyExpenses">RM 0.00</b></p>
-      <p>Monthly Cashflow: <b id="monthlyCashflow">RM 0.00</b></p>
-      <p>12-Month Projection: <b id="projection12">RM 0.00</b></p>
+    <div id="budgetPage" class="page">
+      <div class="card">
+        <h3>Budget</h3>
+        <input type="text" id="budgetCategory" placeholder="Category e.g. Food">
+        <input type="number" id="budgetAmount" placeholder="Monthly Budget">
+        <button onclick="addBudget()">Add Budget</button>
+      </div>
+
+      <div class="card">
+        <h3>Budget vs Actual</h3>
+        <div id="budgetList"></div>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>Add Record</h3>
+    <div id="walletPage" class="page">
+      <div class="card">
+        <h3>Wallets</h3>
+        <input type="text" id="walletName" placeholder="Wallet name e.g. Maybank">
+        <input type="number" id="walletStart" placeholder="Starting balance">
+        <button onclick="addWallet()">Add Wallet</button>
+      </div>
 
-      <input type="date" id="date">
-
-      <select id="type">
-        <option value="income">Income</option>
-        <option value="expense">Expense</option>
-        <option value="investment">Investment</option>
-        <option value="loan">Loan</option>
-        <option value="creditcard">Credit Card Debt</option>
-      </select>
-
-      <input type="text" id="category" placeholder="Category e.g. Salary, Food, Maybank Card">
-      <input type="text" id="description" placeholder="Description">
-      <input type="number" id="amount" placeholder="Amount">
-
-      <input type="file" id="receiptUpload" accept="image/*" capture="environment">
-      <button class="secondary" onclick="readReceipt()">Read Receipt</button>
-      <p id="receiptStatus"></p>
-
-      <button onclick="addRecord()">Add Record</button>
-      <button class="secondary" onclick="exportCSV()">Export CSV</button>
-      <button class="danger" onclick="clearAllData()">Clear All Data</button>
+      <div class="card">
+        <h3>Wallet Balances</h3>
+        <div id="walletList"></div>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>Records</h3>
-      <div id="recordList"></div>
+    <div id="schedulePage" class="page">
+      <div class="card">
+        <h3>Scheduled Transactions</h3>
+        <input type="text" id="scheduleName" placeholder="Name e.g. Salary, Rent">
+        <select id="scheduleType">
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+          <option value="investment">Investment</option>
+          <option value="loan">Loan</option>
+          <option value="creditcard">Credit Card Debt</option>
+        </select>
+        <input type="text" id="scheduleCategory" placeholder="Category">
+        <input type="number" id="scheduleAmount" placeholder="Amount">
+        <input type="number" id="scheduleDay" placeholder="Day of month e.g. 25">
+        <button onclick="addSchedule()">Add Schedule</button>
+        <button class="secondary" onclick="applyScheduledTransactions()">Apply This Month</button>
+      </div>
+
+      <div class="card">
+        <h3>Schedules</h3>
+        <div id="scheduleList"></div>
+      </div>
+    </div>
+
+    <div id="recordsPage" class="page">
+      <div class="card">
+        <h3>Records</h3>
+        <button class="secondary" onclick="exportCSV()">Export CSV</button>
+        <input type="file" id="importCSV" accept=".csv">
+        <button class="secondary" onclick="importCSV()">Import CSV</button>
+        <button class="danger" onclick="clearAllData()">Clear All Data</button>
+        <div id="recordList"></div>
+      </div>
     </div>
   </main>
 
   <script>
     let records = JSON.parse(localStorage.getItem("financeRecords")) || [];
+    let budgets = JSON.parse(localStorage.getItem("financeBudgets")) || [];
+    let wallets = JSON.parse(localStorage.getItem("financeWallets")) || [
+      { name: "Cash", start: 0 },
+      { name: "Bank", start: 0 },
+      { name: "Credit Card", start: 0 }
+    ];
+    let schedules = JSON.parse(localStorage.getItem("financeSchedules")) || [];
+
+    let categoryChart;
+    let monthlyChart;
 
     function money(value) {
-      return "RM " + Number(value).toLocaleString("en-MY", {
+      return "RM " + Number(value || 0).toLocaleString("en-MY", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
+    }
+
+    function saveAll() {
+      localStorage.setItem("financeRecords", JSON.stringify(records));
+      localStorage.setItem("financeBudgets", JSON.stringify(budgets));
+      localStorage.setItem("financeWallets", JSON.stringify(wallets));
+      localStorage.setItem("financeSchedules", JSON.stringify(schedules));
+    }
+
+    function showPage(pageId) {
+      document.querySelectorAll(".page").forEach(page => page.classList.remove("active"));
+      document.getElementById(pageId).classList.add("active");
+      refreshAll();
     }
 
     function addRecord() {
@@ -232,50 +386,337 @@
       const type = document.getElementById("type").value;
       const category = document.getElementById("category").value.trim();
       const description = document.getElementById("description").value.trim();
+      const tag = document.getElementById("tag").value.trim();
       const amount = Number(document.getElementById("amount").value);
+      const wallet = document.getElementById("wallet").value;
+      const toWallet = document.getElementById("toWallet").value;
 
       if (!date || !category || !amount) {
         alert("Please fill in date, category and amount.");
         return;
       }
 
-      records.unshift({
-        date,
-        type,
-        category,
-        description,
-        amount
-      });
+      if (!wallet && type !== "investment") {
+        alert("Please select a wallet.");
+        return;
+      }
 
-      saveData();
+      if (type === "transfer" && (!wallet || !toWallet || wallet === toWallet)) {
+        alert("For transfer, select different From and To wallets.");
+        return;
+      }
+
+      records.unshift({ date, type, category, description, tag, amount, wallet, toWallet });
+
+      saveAll();
       clearForm();
-      renderRecords();
-      updateDashboard();
-      updateMonthlyDashboard();
-    }
-
-    function deleteRecord(index) {
-      if (!confirm("Delete this record?")) return;
-
-      records.splice(index, 1);
-
-      saveData();
-      renderRecords();
-      updateDashboard();
-      updateMonthlyDashboard();
-    }
-
-    function saveData() {
-      localStorage.setItem("financeRecords", JSON.stringify(records));
+      refreshAll();
     }
 
     function clearForm() {
       document.getElementById("date").value = "";
       document.getElementById("category").value = "";
       document.getElementById("description").value = "";
+      document.getElementById("tag").value = "";
       document.getElementById("amount").value = "";
       document.getElementById("receiptUpload").value = "";
       document.getElementById("receiptStatus").innerText = "";
+    }
+
+    function deleteRecord(index) {
+      if (!confirm("Delete this record?")) return;
+      records.splice(index, 1);
+      saveAll();
+      refreshAll();
+    }
+
+    function updateDashboard() {
+      let income = 0, expenses = 0, investments = 0, debt = 0;
+
+      records.forEach(r => {
+        if (r.type === "income") income += Number(r.amount);
+        if (r.type === "expense") expenses += Number(r.amount);
+        if (r.type === "investment") investments += Number(r.amount);
+        if (r.type === "loan" || r.type === "creditcard") debt += Number(r.amount);
+      });
+
+      const netWorth = income + investments - expenses - debt;
+
+      document.getElementById("totalIncome").innerText = money(income);
+      document.getElementById("totalExpenses").innerText = money(expenses);
+      document.getElementById("totalInvestments").innerText = money(investments);
+      document.getElementById("totalDebt").innerText = money(debt);
+      document.getElementById("netWorth").innerText = money(netWorth);
+    }
+
+    function getMonthlyTotal(type) {
+      const now = new Date();
+      return records
+        .filter(r => {
+          const d = new Date(r.date);
+          return r.type === type &&
+            d.getMonth() === now.getMonth() &&
+            d.getFullYear() === now.getFullYear();
+        })
+        .reduce((sum, r) => sum + Number(r.amount), 0);
+    }
+
+    function updateMonthlyDashboard() {
+      const monthlyIncome = getMonthlyTotal("income");
+      const monthlyExpenses = getMonthlyTotal("expense");
+      const monthlyCashflow = monthlyIncome - monthlyExpenses;
+      const savingsRate = monthlyIncome > 0 ? (monthlyCashflow / monthlyIncome) * 100 : 0;
+
+      const totalInvestments = records
+        .filter(r => r.type === "investment")
+        .reduce((sum, r) => sum + Number(r.amount), 0);
+
+      const totalDebt = records
+        .filter(r => r.type === "loan" || r.type === "creditcard")
+        .reduce((sum, r) => sum + Number(r.amount), 0);
+
+      const projectedNetWorth = totalInvestments - totalDebt + (monthlyCashflow * 12);
+
+      document.getElementById("monthlyIncome").innerText = money(monthlyIncome);
+      document.getElementById("monthlyExpenses").innerText = money(monthlyExpenses);
+      document.getElementById("monthlyCashflow").innerText = money(monthlyCashflow);
+      document.getElementById("savingsRate").innerText = savingsRate.toFixed(1) + "%";
+      document.getElementById("projection12").innerText = money(projectedNetWorth);
+    }
+
+    function addBudget() {
+      const category = document.getElementById("budgetCategory").value.trim();
+      const amount = Number(document.getElementById("budgetAmount").value);
+
+      if (!category || !amount) {
+        alert("Please enter category and budget amount.");
+        return;
+      }
+
+      budgets.push({ category, amount });
+      document.getElementById("budgetCategory").value = "";
+      document.getElementById("budgetAmount").value = "";
+
+      saveAll();
+      renderBudgets();
+    }
+
+    function getSpentByCategory(category) {
+      const now = new Date();
+
+      return records
+        .filter(r => {
+          const d = new Date(r.date);
+          return r.type === "expense" &&
+            r.category.toLowerCase() === category.toLowerCase() &&
+            d.getMonth() === now.getMonth() &&
+            d.getFullYear() === now.getFullYear();
+        })
+        .reduce((sum, r) => sum + Number(r.amount), 0);
+    }
+
+    function renderBudgets() {
+      const list = document.getElementById("budgetList");
+      list.innerHTML = "";
+
+      if (budgets.length === 0) {
+        list.innerHTML = "<p class='label'>No budget yet.</p>";
+        return;
+      }
+
+      budgets.forEach((b, index) => {
+        const spent = getSpentByCategory(b.category);
+        const remaining = b.amount - spent;
+        const percent = Math.min((spent / b.amount) * 100, 100);
+
+        list.innerHTML += `
+          <div class="record">
+            <div class="record-top">
+              <span>${b.category}</span>
+              <span>${money(spent)} / ${money(b.amount)}</span>
+            </div>
+            <div class="progress-bg">
+              <div class="progress-fill" style="width:${percent}%"></div>
+            </div>
+            <div class="record-bottom">
+              Remaining: ${money(remaining)}
+            </div>
+            <button class="delete-btn" onclick="deleteBudget(${index})">Delete</button>
+          </div>
+        `;
+      });
+    }
+
+    function deleteBudget(index) {
+      budgets.splice(index, 1);
+      saveAll();
+      renderBudgets();
+    }
+
+    function addWallet() {
+      const name = document.getElementById("walletName").value.trim();
+      const start = Number(document.getElementById("walletStart").value || 0);
+
+      if (!name) {
+        alert("Please enter wallet name.");
+        return;
+      }
+
+      wallets.push({ name, start });
+
+      document.getElementById("walletName").value = "";
+      document.getElementById("walletStart").value = "";
+
+      saveAll();
+      renderWallets();
+      populateWalletDropdowns();
+    }
+
+    function getWalletBalance(walletName) {
+      const wallet = wallets.find(w => w.name === walletName);
+      let balance = Number(wallet ? wallet.start : 0);
+
+      records.forEach(r => {
+        if (r.wallet === walletName) {
+          if (r.type === "income") balance += Number(r.amount);
+          if (r.type === "expense" || r.type === "loan" || r.type === "creditcard") balance -= Number(r.amount);
+          if (r.type === "transfer") balance -= Number(r.amount);
+        }
+
+        if (r.toWallet === walletName && r.type === "transfer") {
+          balance += Number(r.amount);
+        }
+      });
+
+      return balance;
+    }
+
+    function renderWallets() {
+      const list = document.getElementById("walletList");
+      list.innerHTML = "";
+
+      wallets.forEach((w, index) => {
+        const balance = getWalletBalance(w.name);
+
+        list.innerHTML += `
+          <div class="record">
+            <div class="record-top">
+              <span>${w.name}</span>
+              <span>${money(balance)}</span>
+            </div>
+            <div class="record-bottom">Starting balance: ${money(w.start)}</div>
+            <button class="delete-btn" onclick="deleteWallet(${index})">Delete</button>
+          </div>
+        `;
+      });
+    }
+
+    function deleteWallet(index) {
+      if (!confirm("Delete this wallet? Existing records will remain.")) return;
+      wallets.splice(index, 1);
+      saveAll();
+      populateWalletDropdowns();
+      renderWallets();
+    }
+
+    function populateWalletDropdowns() {
+      const walletSelect = document.getElementById("wallet");
+      const toWalletSelect = document.getElementById("toWallet");
+
+      walletSelect.innerHTML = "<option value=''>Select Wallet</option>";
+      toWalletSelect.innerHTML = "<option value=''>To Wallet for transfer only</option>";
+
+      wallets.forEach(w => {
+        walletSelect.innerHTML += `<option value="${w.name}">${w.name}</option>`;
+        toWalletSelect.innerHTML += `<option value="${w.name}">${w.name}</option>`;
+      });
+    }
+
+    function addSchedule() {
+      const name = document.getElementById("scheduleName").value.trim();
+      const type = document.getElementById("scheduleType").value;
+      const category = document.getElementById("scheduleCategory").value.trim();
+      const amount = Number(document.getElementById("scheduleAmount").value);
+      const day = Number(document.getElementById("scheduleDay").value);
+
+      if (!name || !category || !amount || !day) {
+        alert("Please complete schedule details.");
+        return;
+      }
+
+      schedules.push({ name, type, category, amount, day });
+      saveAll();
+      renderSchedules();
+
+      document.getElementById("scheduleName").value = "";
+      document.getElementById("scheduleCategory").value = "";
+      document.getElementById("scheduleAmount").value = "";
+      document.getElementById("scheduleDay").value = "";
+    }
+
+    function renderSchedules() {
+      const list = document.getElementById("scheduleList");
+      list.innerHTML = "";
+
+      if (schedules.length === 0) {
+        list.innerHTML = "<p class='label'>No scheduled transactions.</p>";
+        return;
+      }
+
+      schedules.forEach((s, index) => {
+        list.innerHTML += `
+          <div class="record">
+            <div class="record-top">
+              <span>${s.name}</span>
+              <span>${money(s.amount)}</span>
+            </div>
+            <div class="record-bottom">
+              ${s.type} · ${s.category} · Every month on day ${s.day}
+            </div>
+            <button class="delete-btn" onclick="deleteSchedule(${index})">Delete</button>
+          </div>
+        `;
+      });
+    }
+
+    function deleteSchedule(index) {
+      schedules.splice(index, 1);
+      saveAll();
+      renderSchedules();
+    }
+
+    function applyScheduledTransactions() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      let added = 0;
+
+      schedules.forEach(s => {
+        const date = new Date(year, month, s.day).toISOString().split("T")[0];
+        const exists = records.some(r =>
+          r.date === date &&
+          r.description === "Scheduled: " + s.name &&
+          r.amount === s.amount
+        );
+
+        if (!exists) {
+          records.unshift({
+            date,
+            type: s.type,
+            category: s.category,
+            description: "Scheduled: " + s.name,
+            tag: "Scheduled",
+            amount: s.amount,
+            wallet: wallets[0]?.name || "",
+            toWallet: ""
+          });
+          added++;
+        }
+      });
+
+      saveAll();
+      refreshAll();
+      alert(added + " scheduled transaction(s) added.");
     }
 
     function renderRecords() {
@@ -283,7 +724,7 @@
       list.innerHTML = "";
 
       if (records.length === 0) {
-        list.innerHTML = "<p style='color:#666;'>No records yet.</p>";
+        list.innerHTML = "<p class='label'>No records yet.</p>";
         return;
       }
 
@@ -300,73 +741,16 @@
               <span class="${amountClass}">${money(record.amount)}</span>
             </div>
             <div class="record-bottom">
-              ${record.date} · ${record.type}${record.description ? " · " + record.description : ""}
+              ${record.date} · ${record.type}
+              ${record.wallet ? " · " + record.wallet : ""}
+              ${record.toWallet ? " → " + record.toWallet : ""}
+              ${record.tag ? " · #" + record.tag : ""}
+              ${record.description ? " · " + record.description : ""}
             </div>
             <button class="delete-btn" onclick="deleteRecord(${index})">Delete</button>
           </div>
         `;
       });
-    }
-
-    function updateDashboard() {
-      let income = 0;
-      let expenses = 0;
-      let investments = 0;
-      let debt = 0;
-
-      records.forEach(record => {
-        if (record.type === "income") income += Number(record.amount);
-        if (record.type === "expense") expenses += Number(record.amount);
-        if (record.type === "investment") investments += Number(record.amount);
-        if (record.type === "loan" || record.type === "creditcard") debt += Number(record.amount);
-      });
-
-      const netWorth = income + investments - expenses - debt;
-
-      document.getElementById("totalIncome").innerText = money(income);
-      document.getElementById("totalExpenses").innerText = money(expenses);
-      document.getElementById("totalInvestments").innerText = money(investments);
-      document.getElementById("totalDebt").innerText = money(debt);
-      document.getElementById("netWorth").innerText = money(netWorth);
-    }
-
-    function getMonthlyTotal(type) {
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-
-      return records
-        .filter(r => {
-          const d = new Date(r.date);
-          return (
-            r.type === type &&
-            d.getMonth() === currentMonth &&
-            d.getFullYear() === currentYear
-          );
-        })
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-    }
-
-    function updateMonthlyDashboard() {
-      const monthlyIncome = getMonthlyTotal("income");
-      const monthlyExpenses = getMonthlyTotal("expense");
-      const monthlyCashflow = monthlyIncome - monthlyExpenses;
-
-      const totalInvestments = records
-        .filter(r => r.type === "investment")
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-
-      const totalDebt = records
-        .filter(r => r.type === "loan" || r.type === "creditcard")
-        .reduce((sum, r) => sum + Number(r.amount), 0);
-
-      const projectedNetWorth =
-        totalInvestments - totalDebt + (monthlyCashflow * 12);
-
-      document.getElementById("monthlyIncome").innerText = money(monthlyIncome);
-      document.getElementById("monthlyExpenses").innerText = money(monthlyExpenses);
-      document.getElementById("monthlyCashflow").innerText = money(monthlyCashflow);
-      document.getElementById("projection12").innerText = money(projectedNetWorth);
     }
 
     async function readReceipt() {
@@ -379,25 +763,16 @@
       }
 
       status.innerText = "Reading receipt...";
-
       const file = fileInput.files[0];
 
       try {
-        const result = await Tesseract.recognize(
-          file,
-          "eng",
-          {
-            logger: m => {
-              if (m.status) {
-                status.innerText = "Reading: " + m.status;
-              }
-            }
+        const result = await Tesseract.recognize(file, "eng", {
+          logger: m => {
+            if (m.status) status.innerText = "Reading: " + m.status;
           }
-        );
+        });
 
         const text = result.data.text;
-        console.log(text);
-
         const amount = extractAmount(text);
         const date = extractDate(text);
         const category = guessCategory(text);
@@ -409,7 +784,6 @@
         document.getElementById("description").value = text.substring(0, 80);
 
         status.innerText = "Receipt read successfully. Please check before saving.";
-
       } catch (error) {
         console.error(error);
         status.innerText = "Could not read the receipt.";
@@ -418,50 +792,30 @@
 
     function extractAmount(text) {
       const lines = text.split("\n").map(line => line.trim());
-
-      const keywords = [
-        "total",
-        "amount",
-        "grand total",
-        "balance",
-        "paid",
-        "net total",
-        "subtotal"
-      ];
+      const keywords = ["total", "amount", "grand total", "balance", "paid", "net total"];
 
       for (let line of lines) {
         const lower = line.toLowerCase();
-
         if (keywords.some(k => lower.includes(k))) {
           const match = line.match(/(\d+[.,]\d{2})/g);
-
-          if (match && match.length > 0) {
-            return Number(match[match.length - 1].replace(",", "."));
-          }
+          if (match && match.length > 0) return Number(match[match.length - 1].replace(",", "."));
         }
       }
 
       const allAmounts = text.match(/(\d+[.,]\d{2})/g);
-
       if (!allAmounts) return "";
-
-      return Math.max(
-        ...allAmounts.map(a => Number(a.replace(",", ".")))
-      );
+      return Math.max(...allAmounts.map(a => Number(a.replace(",", "."))));
     }
 
     function extractDate(text) {
       const match = text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
-
       if (!match) return "";
 
       let day = match[1].padStart(2, "0");
       let month = match[2].padStart(2, "0");
       let year = match[3];
 
-      if (year.length === 2) {
-        year = "20" + year;
-      }
+      if (year.length === 2) year = "20" + year;
 
       return `${year}-${month}-${day}`;
     }
@@ -469,58 +823,55 @@
     function guessCategory(text) {
       const lower = text.toLowerCase();
 
-      if (
-        lower.includes("petron") ||
-        lower.includes("shell") ||
-        lower.includes("caltex") ||
-        lower.includes("bhp") ||
-        lower.includes("fuel")
-      ) {
-        return "Petrol";
-      }
-
-      if (
-        lower.includes("grab") ||
-        lower.includes("taxi") ||
-        lower.includes("parking") ||
-        lower.includes("touch n go") ||
-        lower.includes("tng")
-      ) {
-        return "Transport";
-      }
-
-      if (
-        lower.includes("aeon") ||
-        lower.includes("jaya grocer") ||
-        lower.includes("village grocer") ||
-        lower.includes("lotus") ||
-        lower.includes("tesco") ||
-        lower.includes("grocery")
-      ) {
-        return "Groceries";
-      }
-
-      if (
-        lower.includes("restaurant") ||
-        lower.includes("cafe") ||
-        lower.includes("coffee") ||
-        lower.includes("mcd") ||
-        lower.includes("kfc") ||
-        lower.includes("food")
-      ) {
-        return "Food";
-      }
-
-      if (
-        lower.includes("pharmacy") ||
-        lower.includes("guardian") ||
-        lower.includes("watsons") ||
-        lower.includes("clinic")
-      ) {
-        return "Health";
-      }
+      if (lower.includes("petron") || lower.includes("shell") || lower.includes("caltex") || lower.includes("fuel")) return "Petrol";
+      if (lower.includes("grab") || lower.includes("taxi") || lower.includes("parking") || lower.includes("tng")) return "Transport";
+      if (lower.includes("aeon") || lower.includes("jaya grocer") || lower.includes("village grocer") || lower.includes("lotus")) return "Groceries";
+      if (lower.includes("restaurant") || lower.includes("cafe") || lower.includes("mcd") || lower.includes("kfc") || lower.includes("food")) return "Food";
+      if (lower.includes("guardian") || lower.includes("watsons") || lower.includes("pharmacy") || lower.includes("clinic")) return "Health";
 
       return "Expense";
+    }
+
+    function updateCharts() {
+      const categoryTotals = {};
+      records.forEach(r => {
+        if (r.type === "expense") {
+          categoryTotals[r.category] = (categoryTotals[r.category] || 0) + Number(r.amount);
+        }
+      });
+
+      const categoryLabels = Object.keys(categoryTotals);
+      const categoryData = Object.values(categoryTotals);
+
+      if (categoryChart) categoryChart.destroy();
+      categoryChart = new Chart(document.getElementById("categoryChart"), {
+        type: "doughnut",
+        data: {
+          labels: categoryLabels,
+          datasets: [{ data: categoryData }]
+        }
+      });
+
+      const monthlyTotals = {};
+      records.forEach(r => {
+        if (r.type === "expense") {
+          const d = new Date(r.date);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          monthlyTotals[key] = (monthlyTotals[key] || 0) + Number(r.amount);
+        }
+      });
+
+      const monthlyLabels = Object.keys(monthlyTotals).sort();
+      const monthlyData = monthlyLabels.map(k => monthlyTotals[k]);
+
+      if (monthlyChart) monthlyChart.destroy();
+      monthlyChart = new Chart(document.getElementById("monthlyChart"), {
+        type: "bar",
+        data: {
+          labels: monthlyLabels,
+          datasets: [{ label: "Expenses", data: monthlyData }]
+        }
+      });
     }
 
     function exportCSV() {
@@ -529,8 +880,10 @@
         return;
       }
 
-      const headers = ["Date", "Type", "Category", "Description", "Amount"];
-      const rows = records.map(r => [r.date, r.type, r.category, r.description, r.amount]);
+      const headers = ["Date", "Type", "Category", "Description", "Tag", "Amount", "Wallet", "ToWallet"];
+      const rows = records.map(r => [
+        r.date, r.type, r.category, r.description || "", r.tag || "", r.amount, r.wallet || "", r.toWallet || ""
+      ]);
 
       const csv = [headers, ...rows]
         .map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(","))
@@ -547,23 +900,86 @@
       URL.revokeObjectURL(url);
     }
 
+    function importCSV() {
+      const input = document.getElementById("importCSV");
+      if (!input.files.length) {
+        alert("Please select a CSV file.");
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split("\n").slice(1);
+
+        lines.forEach(line => {
+          if (!line.trim()) return;
+
+          const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
+            .map(c => c.replace(/^"|"$/g, "").replaceAll('""', '"'));
+
+          records.push({
+            date: cols[0],
+            type: cols[1],
+            category: cols[2],
+            description: cols[3],
+            tag: cols[4],
+            amount: Number(cols[5]),
+            wallet: cols[6],
+            toWallet: cols[7]
+          });
+        });
+
+        saveAll();
+        refreshAll();
+        alert("CSV imported.");
+      };
+
+      reader.readAsText(input.files[0]);
+    }
+
     function clearAllData() {
-      if (!confirm("This will delete all your records. Continue?")) return;
+      if (!confirm("This will delete all records, budgets, wallets and schedules. Continue?")) return;
 
       records = [];
-      saveData();
-      renderRecords();
+      budgets = [];
+      wallets = [
+        { name: "Cash", start: 0 },
+        { name: "Bank", start: 0 },
+        { name: "Credit Card", start: 0 }
+      ];
+      schedules = [];
+
+      saveAll();
+      refreshAll();
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("darkMode", document.body.classList.contains("dark") ? "yes" : "no");
+    }
+
+    function refreshAll() {
+      populateWalletDropdowns();
       updateDashboard();
       updateMonthlyDashboard();
+      renderBudgets();
+      renderWallets();
+      renderSchedules();
+      renderRecords();
+      updateCharts();
+    }
+
+    if (localStorage.getItem("darkMode") === "yes") {
+      document.body.classList.add("dark");
     }
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js");
     }
 
-    renderRecords();
-    updateDashboard();
-    updateMonthlyDashboard();
+    refreshAll();
   </script>
 </body>
 </html>
