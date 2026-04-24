@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Finance App</title>
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1f6feb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Finance">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: #f3f5f8;
+      color: #222;
+    }
+
+    header {
+      background: #1f6feb;
+      color: white;
+      padding: 22px 18px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+      border-bottom-left-radius: 22px;
+      border-bottom-right-radius: 22px;
+    }
+
+    main {
+      padding: 16px;
+      max-width: 720px;
+      margin: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .small-card {
+      min-height: 95px;
+    }
+
+    .label {
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .value {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .income { color: #168038; }
+    .expense { color: #d93025; }
+    .asset { color: #1f6feb; }
+    .debt { color: #9b1c1c; }
+
+    input, select, button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 8px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      font-size: 16px;
+    }
+
+    button {
+      background: #1f6feb;
+      color: white;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #eef3ff;
+      color: #1f6feb;
+    }
+
+    .record {
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .record:last-child {
+      border-bottom: none;
+    }
+
+    .record-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 700;
+    }
+
+    .record-bottom {
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .delete-btn {
+      background: #fff0f0;
+      color: #d93025;
+      padding: 8px 10px;
+      width: auto;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      header { font-size: 20px; }
+      .value { font-size: 19px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>My Finance App</header>
+
+  <main>
+    <div class="grid">
+      <div class="card small-card">
+        <div class="label">Income</div>
+        <div class="value income" id="totalIncome">RM 0.00</div>
+      </div>
+
+      <div class="card small-card">
+        <div class="label">Expenses</div>
+        <div class="value expense" id="totalExpenses">RM 0.00</div>
+      </div>
+
+      <div class="card small-card">
+        <div class="label">Investments</div>
+        <div class="value asset" id="totalInvestments">RM 0.00</div>
+      </div>
+
+      <div class="card small-card">
+        <div class="label">Debt</div>
+        <div class="value debt" id="totalDebt">RM 0.00</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Net Worth</div>
+      <div class="value" id="netWorth">RM 0.00</div>
+    </div>
+
+    <div class="card">
+      <h3>Add Record</h3>
+
+      <input type="date" id="date">
+
+      <select id="type">
+        <option value="income">Income</option>
+        <option value="expense">Expense</option>
+        <option value="investment">Investment</option>
+        <option value="loan">Loan</option>
+        <option value="creditcard">Credit Card Debt</option>
+      </select>
+
+      <input type="text" id="category" placeholder="Category e.g. Salary, Food, Maybank Card">
+      <input type="text" id="description" placeholder="Description">
+      <input type="number" id="amount" placeholder="Amount">
+
+      <button onclick="addRecord()">Add Record</button>
+      <button class="secondary" onclick="exportCSV()">Export CSV</button>
+    </div>
+
+    <div class="card">
+      <h3>Records</h3>
+      <div id="recordList"></div>
+    </div>
+  </main>
+
+  <script>
+    let records = JSON.parse(localStorage.getItem("financeRecords")) || [];
+
+    function money(value) {
+      return "RM " + Number(value).toLocaleString("en-MY", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function addRecord() {
+      const date = document.getElementById("date").value;
+      const type = document.getElementById("type").value;
+      const category = document.getElementById("category").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const amount = Number(document.getElementById("amount").value);
+
+      if (!date || !category || !amount) {
+        alert("Please fill in date, category and amount.");
+        return;
+      }
+
+      records.unshift({
+        date,
+        type,
+        category,
+        description,
+        amount
+      });
+
+      saveData();
+      clearForm();
+      renderRecords();
+      updateDashboard();
+    }
+
+    function deleteRecord(index) {
+      if (!confirm("Delete this record?")) return;
+      records.splice(index, 1);
+      saveData();
+      renderRecords();
+      updateDashboard();
+    }
+
+    function saveData() {
+      localStorage.setItem("financeRecords", JSON.stringify(records));
+    }
+
+    function clearForm() {
+      document.getElementById("date").value = "";
+      document.getElementById("category").value = "";
+      document.getElementById("description").value = "";
+      document.getElementById("amount").value = "";
+    }
+
+    function renderRecords() {
+      const list = document.getElementById("recordList");
+      list.innerHTML = "";
+
+      if (records.length === 0) {
+        list.innerHTML = "<p style='color:#666;'>No records yet.</p>";
+        return;
+      }
+
+      records.forEach((record, index) => {
+        const amountClass =
+          record.type === "income" ? "income" :
+          record.type === "expense" ? "expense" :
+          record.type === "investment" ? "asset" : "debt";
+
+        list.innerHTML += `
+          <div class="record">
+            <div class="record-top">
+              <span>${record.category}</span>
+              <span class="${amountClass}">${money(record.amount)}</span>
+            </div>
+            <div class="record-bottom">
+              ${record.date} · ${record.type}${record.description ? " · " + record.description : ""}
+            </div>
+            <button class="delete-btn" onclick="deleteRecord(${index})">Delete</button>
+          </div>
+        `;
+      });
+    }
+
+    function updateDashboard() {
+      let income = 0;
+      let expenses = 0;
+      let investments = 0;
+      let debt = 0;
+
+      records.forEach(record => {
+        if (record.type === "income") income += record.amount;
+        if (record.type === "expense") expenses += record.amount;
+        if (record.type === "investment") investments += record.amount;
+        if (record.type === "loan" || record.type === "creditcard") debt += record.amount;
+      });
+
+      const netWorth = income + investments - expenses - debt;
+
+      document.getElementById("totalIncome").innerText = money(income);
+      document.getElementById("totalExpenses").innerText = money(expenses);
+      document.getElementById("totalInvestments").innerText = money(investments);
+      document.getElementById("totalDebt").innerText = money(debt);
+      document.getElementById("netWorth").innerText = money(netWorth);
+    }
+
+    function exportCSV() {
+      if (records.length === 0) {
+        alert("No data to export.");
+        return;
+      }
+
+      const headers = ["Date", "Type", "Category", "Description", "Amount"];
+      const rows = records.map(r => [r.date, r.type, r.category, r.description, r.amount]);
+
+      const csv = [headers, ...rows]
+        .map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(","))
+        .join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "finance-records.csv";
+      a.click();
+
+      URL.revokeObjectURL(url);
+    }
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
+
+    renderRecords();
+    updateDashboard();
+  </script>
+</body>
+</html>
