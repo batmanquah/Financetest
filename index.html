@@ -334,6 +334,25 @@
 
     renderRecords();
     updateDashboard();
-  </script>
+  function calculateProjection() {
+  let income = 0;
+  let expenses = 0;
+  let investments = 0;
+  let debt = 0;
+
+  records.forEach(r => {
+    if (r.type === "income") income += r.amount;
+    if (r.type === "expense") expenses += r.amount;
+    if (r.type === "investment") investments += r.amount;
+    if (r.type === "loan" || r.type === "creditcard") debt += r.amount;
+  });
+
+  const monthlyNet = income - expenses;
+  const currentNetWorth = income + investments - expenses - debt;
+  const projectedNetWorth = currentNetWorth + (monthlyNet * 12);
+
+  document.getElementById("monthlyNet").innerText = "RM " + monthlyNet.toFixed(2);
+  document.getElementById("projection12").innerText = "RM " + projectedNetWorth.toFixed(2);
+}
 </body>
 </html>
